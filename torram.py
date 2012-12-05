@@ -28,6 +28,19 @@ def get_possible_files(rootdir, sizes):
     return filesizes
 
 
+def load_qbittorrent_conf(hash):
+    from PyQt4 import QtCore
+
+    test_string = "looooong" * 1000
+    settings = QtCore.QSettings("/home/vbuell/.config/qBittorrent/qBittorrent-resume.conf", QtCore.QSettings.IniFormat)
+
+    root = settings.value('torrents').toPyObject()
+    record = root[QtCore.QString(hash)]
+    path = record[QtCore.QString('save_path')]
+
+    return path
+
+
 def check_file_chunk(hash, offset, length, file):
     sfile = open(file.decode('UTF-8'), "rb")
 
@@ -118,12 +131,18 @@ def main():
     info = metainfo['info']
     pieces = StringIO.StringIO(info['pieces'])
 
+    hash = hashlib.sha1(bencode.bencode(info)).hexdigest()
+    print "Hash:", hash
+
     sizes = get_file_sizes(info)
     print 'Sizes', sizes
 
-    print 'Searching for file pretenders...'
+    if args.autodetect_output_dir:
+        save_path = load_qbittorrent_conf(hash)
+        print save_path
 
     # Get possible files
+    print 'Searching for file pretenders...'
     files = get_possible_files(os.path.expanduser(args.root), sizes)
 
     # Check files one by one
@@ -152,6 +171,10 @@ if __name__ == "__main__":
         help='Use symlinks instead of copying files. (Caution: You may lost data if files actually are not the same.)')
     parser.add_argument('--minsize', default=MINIMUM_FILESIZE_TO_SEARCH)
     parser.add_argument('--verbose', '-v', action='count')
+    parser.add_argument('-o', '--output_dir', dest='output_dir', help='Output directory where to create new download directory')
+    parser.add_argument('-a', '--autodetect_output_dir', dest='autodetect_output_dir', action='store_true',
+        help='Autodetect output directory using config directory of torrent clients (Deluge currently supported only)')
+
 #    parser.add_argument('-o', '--output_format', dest='output_format', help='output_format [ansi, ascii]',
 #        default="ansi")
     args = parser.parse_args()
