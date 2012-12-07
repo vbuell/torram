@@ -33,8 +33,12 @@ def suggest_method(pieces, downladed_file_index):
     fullest_file_rate = 0
     downladed_file_rate = 0
     mixed_file_rate = 0
+    mixed_pieces = []
 
+    # calculate per file
     for idx, blocks in pieces.items():
+        if len(blocks) == 0:
+            return 'S'
         num_of_success = reduce(lambda x, y: x+int(y), blocks, 0)
         rate = float(num_of_success) / len(blocks)
         if idx == downladed_file_index:
@@ -42,6 +46,17 @@ def suggest_method(pieces, downladed_file_index):
         if rate > fullest_file_rate:
             fullest_file_rate = rate
             fullest_file_idx = idx
+
+    # calculate mixed
+    if len(pieces) > 1:
+        for aa in zip(*pieces.values()):
+    #        print aa, type(aa), any(aa)
+            mixed_pieces.append(any(aa))
+        num_of_success = reduce(lambda x, y: x+int(y), mixed_pieces, 0)
+        print "Got [" + str(num_of_success) + ' of ' + str(len(mixed_pieces)) + ' good pieces from ', len(pieces), 'files', float(num_of_success) / len(mixed_pieces)
+
+        if float(num_of_success) / len(mixed_pieces) > fullest_file_rate:
+            print fmt.format('Yeppee!!!!!', 'REDBOLD')
 
     if downladed_file_rate >= fullest_file_rate:
         return 'S'
@@ -192,12 +207,12 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             color_code, result_message = get_similatity_rate_and_color(num_of_successes, num_of_checks)
             print fmt.format(' [' + str(num_of_successes) + " of " + str(num_of_checks) + '] (' + result_message + ')', color_code)
         suggestion = suggest_method(chunks_data, downladed_file_index)
-        input = raw_input(fmt.format('[<N>,S], default=' + suggestion, 'INVERT'))
+        input = raw_input(fmt.format('[<N>,S,M], default=' + suggestion + ':', 'INVERT'))
         if input == '':
             input = suggestion
         if re.match('^[0-9]+$', input):
             src_path = files[file_length][int(input)]
-#            print '#### create symlink:', dest_path, src_path
+            print '#### copying:', dest_path, src_path
             ensure_dir(dest_path)
             shutil.copyfile(src_path, dest_path + '.!qB')
 
