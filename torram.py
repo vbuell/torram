@@ -7,6 +7,43 @@ FILES_DIR = '~'
 MINIMUM_FILESIZE_TO_SEARCH = 1024 * 256
 DO_NOT_SHOW_SKIPPED = True
 
+class AnsiFormatter(object):
+    aaa = {'RED': "\033[31m",
+           'REDBOLD': "\033[31m\033[1m",
+           'YELLOW': "\033[33m",
+           'INVERT': "\033[40m\033[37m",
+           'GREEN': "\033[32m",
+           'BLUEBOLD': "\033[34m\033[1m",
+           'BLACK2': "\033[90m",
+           'BLACK1': "\033[37m",
+           'BLACK0': "\033[97m",
+           'BLACK0BOLD': "\033[97m\033[1m"
+    }
+
+    def format(self, txt, code):
+        return self.aaa[code] + txt + "\033[0m"
+
+
+class BaseFormatter(object):
+    def format(self, txt, code):
+        return txt
+
+
+def get_similatity_rate_and_color(success_blocks, all_blocks):
+    if all_blocks == 0:
+        return ('BLACK2', 'Bad')
+
+    rate = float(success_blocks) / all_blocks
+    if rate > 0.9:
+        return ('GREEN', 'Excelent')
+    if rate > 0.5:
+        return ('YELLOW', 'Good')
+    if rate > 0.01:
+        return ('YELLOW', 'Poor')
+    else:
+        return ('BLACK2', 'Bad')
+
+
 
 def get_file_sizes(info):
     global args
@@ -81,12 +118,6 @@ def get_chunk(filesizes, global_offset):
     return (file_idx, global_offset - file_offset)
 
 
-def get_similatity_rate(success_blocks, all_blocks):
-    if all_blocks == 0:
-        return 0
-    rate = success_blocks / all_blocks
-    if rate > 0.9: return
-
 def ensure_dir(f):
     d = os.path.dirname(f)
     if not os.path.exists(d):
@@ -106,13 +137,14 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
     dest_path = os.path.join(save_path, basedir, file_name)
 
     if file_length in files:
-        print "Processing file:", file_name
+        print "Processing file: " + fmt.format(str(file_name), 'BLUEBOLD')
         for idx, file in enumerate(files[file_length]):
             pieces.seek(0)
-            if file == dest_path:
-                sys.stdout.write(" * " + str(file))
+            if file.startswith(dest_path):
+                number_to_show = ' * '
             else:
-                sys.stdout.write(" " + str(idx) + " " + str(file))
+                number_to_show = ' '+str(idx)+' '
+            sys.stdout.write(fmt.format(number_to_show, 'BLACK0BOLD') + str(file))
 
             num_of_checks = 0
             num_of_successes = 0
@@ -130,11 +162,12 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
                 offset += 1
 
-            print "\t[", num_of_successes, "of", num_of_checks, ']'
-        input = raw_input('[<N>,S]')
+            color_code, result_message = get_similatity_rate_and_color(num_of_successes, num_of_checks)
+            print fmt.format(' [' + str(num_of_successes) + " of " + str(num_of_checks) + '] (' + result_message + ')', color_code)
+        input = raw_input(fmt.format('[<N>,S]', 'INVERT'))
         if re.match('^[0-9]+$', input):
             src_path = files[file_length][int(input)]
-            print '#### create symlink:', dest_path, src_path
+#            print '#### create symlink:', dest_path, src_path
             ensure_dir(dest_path)
             shutil.copyfile(src_path, dest_path + '.!qB')
 
@@ -196,14 +229,12 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output_dir', dest='output_dir', help='Output directory where to create new download directory')
     parser.add_argument('-a', '--autodetect_output_dir', dest='autodetect_output_dir', action='store_true',
         help='Autodetect output directory using config directory of torrent clients (Deluge currently supported only)')
-
-#    parser.add_argument('-o', '--output_format', dest='output_format', help='output_format [ansi, ascii]',
-#        default="ansi")
+    parser.add_argument('-c', '--use_color', dest='use_color', action='store_true', help='output_format [ansi, ascii]')
     args = parser.parse_args()
 
-#    if args.output_format == 'ansi':
-#        fmt = AnsiFormatter()
-#    else:
-#        fmt = BaseFormatter()
+    if args.use_color:
+        fmt = AnsiFormatter()
+    else:
+        fmt = BaseFormatter()
 
     main()
