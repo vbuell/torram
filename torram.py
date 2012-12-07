@@ -1,5 +1,6 @@
 #!/usr/bin/python
-import sys, os, hashlib, StringIO, bencode
+import sys, os, hashlib, StringIO, bencode, re, shutil
+
 
 DELUGE_DIR = '~/.config/deluge/state'
 FILES_DIR = '~'
@@ -31,12 +32,14 @@ def get_possible_files(rootdir, sizes):
 def load_qbittorrent_conf(hash):
     from PyQt4 import QtCore
 
-    test_string = "looooong" * 1000
     settings = QtCore.QSettings("/home/vbuell/.config/qBittorrent/qBittorrent-resume.conf", QtCore.QSettings.IniFormat)
 
     root = settings.value('torrents').toPyObject()
     record = root[QtCore.QString(hash)]
     path = record[QtCore.QString('save_path')]
+
+    if (isinstance(path, QtCore.QString)):
+        path = str(path)
 
     return path
 
@@ -84,21 +87,32 @@ def get_similatity_rate(success_blocks, all_blocks):
     rate = success_blocks / all_blocks
     if rate > 0.9: return
 
-def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_array):
+def ensure_dir(f):
+    d = os.path.dirname(f)
+    if not os.path.exists(d):
+        os.makedirs(d)
+
+def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_array, basedir):
     global args
     global fmt
+    global save_path
+
     if 'path' in file_info:
         file_name = os.path.join(*file_info['path'])
     else:
         file_name = file_info['name']
 
     file_length = file_info['length']
+    dest_path = os.path.join(save_path, basedir, file_name)
 
     if file_length in files:
         print "Processing file:", file_name
-        for file in files[file_length]:
+        for idx, file in enumerate(files[file_length]):
             pieces.seek(0)
-            sys.stdout.write(" * " + str(file))
+            if file == dest_path:
+                sys.stdout.write(" * " + str(file))
+            else:
+                sys.stdout.write(" " + str(idx) + " " + str(file))
 
             num_of_checks = 0
             num_of_successes = 0
@@ -117,6 +131,13 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
                 offset += 1
 
             print "\t[", num_of_successes, "of", num_of_checks, ']'
+        input = raw_input('[<N>,S]')
+        if re.match('^[0-9]+$', input):
+            src_path = files[file_length][int(input)]
+            print '#### create symlink:', dest_path, src_path
+            ensure_dir(dest_path)
+            shutil.copyfile(src_path, dest_path + '.!qB')
+
     else:
         if args.verbose > 0:
             print "Skipping file:", file_name
@@ -124,6 +145,7 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
 def main():
     global args
+    global save_path
 
     # Open torrent file
     torrent_file = open(args.torrentfile, "rb")
@@ -150,12 +172,12 @@ def main():
         files_sizes_array = [f['length'] for f in info['files']]
         file_idx = 0
         for f in info['files']:
-            guess_file(f, file_idx, files, pieces, info['piece length'], files_sizes_array)
+            guess_file(f, file_idx, files, pieces, info['piece length'], files_sizes_array, info['name'])
             file_idx += 1
     else:
         print info.keys()
         files_sizes_array = [info['length']]
-        guess_file(info, 0, files, pieces, info['piece length'], files_sizes_array)
+        guess_file(info, 0, files, pieces, info['piece length'], files_sizes_array, '')
 
 
 if __name__ == "__main__":
