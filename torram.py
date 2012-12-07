@@ -28,6 +28,25 @@ class BaseFormatter(object):
     def format(self, txt, code):
         return txt
 
+def suggest_method(pieces, downladed_file_index):
+    fullest_file_idx = None
+    fullest_file_rate = 0
+    downladed_file_rate = 0
+    mixed_file_rate = 0
+
+    for idx, blocks in pieces.items():
+        num_of_success = reduce(lambda x, y: x+int(y), blocks, 0)
+        rate = float(num_of_success) / len(blocks)
+        if idx == downladed_file_index:
+            downladed_file_rate = rate
+        if rate > fullest_file_rate:
+            fullest_file_rate = rate
+            fullest_file_idx = idx
+
+    if downladed_file_rate >= fullest_file_rate:
+        return 'S'
+    return str(fullest_file_idx)
+
 
 def get_similatity_rate_and_color(success_blocks, all_blocks):
     if all_blocks == 0:
@@ -138,17 +157,21 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
     if file_length in files:
         print "Processing file: " + fmt.format(str(file_name), 'BLUEBOLD')
-        for idx, file in enumerate(files[file_length]):
+        chunks_data = {}
+        downladed_file_index = None
+        for file_number, file in enumerate(files[file_length]):
             pieces.seek(0)
             if file.startswith(dest_path):
                 number_to_show = ' * '
+                downladed_file_index = file_number
             else:
-                number_to_show = ' '+str(idx)+' '
+                number_to_show = ' '+str(file_number)+' '
             sys.stdout.write(fmt.format(number_to_show, 'BLACK0BOLD') + str(file))
 
             num_of_checks = 0
             num_of_successes = 0
             offset = 0
+            pieces_list = []
             while True:
                 hash = pieces.read(20)
                 if not hash:
@@ -157,14 +180,21 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
                 if idx == file_idx:
                     num_of_checks += 1
-                    if check_file_chunk(hash, file_offset, piece_length, file):
+                    hash_result = check_file_chunk(hash, file_offset, piece_length, file)
+                    pieces_list.append(hash_result)
+                    if hash_result:
                         num_of_successes += 1
 
                 offset += 1
 
+            chunks_data[file_number] = pieces_list
+
             color_code, result_message = get_similatity_rate_and_color(num_of_successes, num_of_checks)
             print fmt.format(' [' + str(num_of_successes) + " of " + str(num_of_checks) + '] (' + result_message + ')', color_code)
-        input = raw_input(fmt.format('[<N>,S]', 'INVERT'))
+        suggestion = suggest_method(chunks_data, downladed_file_index)
+        input = raw_input(fmt.format('[<N>,S], default=' + suggestion, 'INVERT'))
+        if input == '':
+            input = suggestion
         if re.match('^[0-9]+$', input):
             src_path = files[file_length][int(input)]
 #            print '#### create symlink:', dest_path, src_path
