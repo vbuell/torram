@@ -1,10 +1,10 @@
 #!/usr/bin/python
-import sys, os, hashlib, StringIO, bencode, re, shutil
+import sys, os, hashlib, StringIO, bencode, re, shutil, tempfile
 
 
 DELUGE_DIR = '~/.config/deluge/state'
 FILES_DIR = '~'
-MINIMUM_FILESIZE_TO_SEARCH = 1024 * 256
+MINIMUM_FILESIZE_TO_SEARCH = 1024 * 1024
 DO_NOT_SHOW_SKIPPED = True
 
 class AnsiFormatter(object):
@@ -152,6 +152,15 @@ def get_chunk(filesizes, global_offset):
     return (file_idx, global_offset - file_offset)
 
 
+def construct_file(files):
+    import tempfile, shutil
+    f = tempfile.NamedTemporaryFile(mode = 'w+b', delete=False)
+    f.write('foo')
+    file_name = f.name
+    f.close()
+    shutil.copy(file_name, 'bar.txt')
+
+
 def ensure_dir(f):
     d = os.path.dirname(f)
     if not os.path.exists(d):
@@ -174,6 +183,9 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
         print "Processing file: " + fmt.format(str(file_name), 'BLUEBOLD')
         chunks_data = {}
         downladed_file_index = None
+
+        add_incomplete_file_with_different_size(dest_path, files[file_length])
+
         for file_number, file in enumerate(files[file_length]):
             pieces.seek(0)
             if file.startswith(dest_path):
@@ -220,6 +232,15 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
         if args.verbose > 0:
             print "Skipping file:", file_name
 
+def add_incomplete_file_with_different_size(filepath, list):
+    try:
+        for filename in os.listdir(os.path.dirname(filepath)):
+            curr_filepath = os.path.join(os.path.dirname(filepath), filename)
+            if curr_filepath.startswith(filepath):
+                if curr_filepath not in list:
+                    list.append(curr_filepath)
+    except OSError, ex:
+        print ex
 
 def main():
     global args
