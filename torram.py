@@ -57,6 +57,7 @@ def suggest_method(pieces, downladed_file_index):
 
         if float(num_of_success) / len(mixed_pieces) > fullest_file_rate:
             print fmt.format('Yeppee!!!!!', 'REDBOLD')
+            return 'M'
 
     if downladed_file_rate >= fullest_file_rate:
         return 'S'
@@ -152,13 +153,42 @@ def get_chunk(filesizes, global_offset):
     return (file_idx, global_offset - file_offset)
 
 
-def construct_file(files):
+def construct_file(chunks_data, files, pieces, file_idx):
     import tempfile, shutil
+
+    # TODO: Get biggest file
     f = tempfile.NamedTemporaryFile(mode = 'w+b', delete=False)
+
     f.write('foo')
     file_name = f.name
     f.close()
-    shutil.copy(file_name, 'bar.txt')
+    shutil.copy(files[0], f.name)
+
+    f = open(f.name, 'w+b')
+
+    chunk_idx = 0
+    while True:
+        hash = pieces.read(20)
+        if not hash:
+            break
+        idx, file_offset = get_chunk(files_sizes_array, offset * piece_length)
+
+        if idx == file_idx:
+
+            for p in chunks_data:
+                if p[chunk_idx] == True:
+                    # copy chunk from and to (file_offset, piece_length)
+                    filename = files[file_idx]
+                    src = open(filename)
+                    src.seek(file_offset)
+                    f.seek(file_offset)
+                    f.write(src.read(piece_length))
+                    src.close()
+                    break
+
+            chunk_idx += 1
+
+        offset += 1
 
 
 def ensure_dir(f):
@@ -227,6 +257,10 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             print '#### copying:', dest_path, src_path
             ensure_dir(dest_path)
             shutil.copyfile(src_path, dest_path + '.!qB')
+        else input == 'M':
+            print 'create mixed file'
+            construct_file(chunks_data, files[file_length], pieces, file_idx)
+
 
     else:
         if args.verbose > 0:
