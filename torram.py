@@ -5,7 +5,6 @@ import sys, os, hashlib, StringIO, bencode, re, shutil, tempfile
 DELUGE_DIR = '~/.config/deluge/state'
 FILES_DIR = '~'
 MINIMUM_FILESIZE_TO_SEARCH = 1024 * 1024
-DO_NOT_SHOW_SKIPPED = True
 
 class AnsiFormatter(object):
     aaa = {'RED': "\033[31m",
@@ -28,7 +27,12 @@ class BaseFormatter(object):
     def format(self, txt, code):
         return txt
 
-def suggest_method(pieces, downladed_file_index):
+class FileInfo():
+    def __init__(self):
+        self.start_offset = None
+        self.isOriginal = False
+
+def suggest_method(file_infos):
     fullest_file_idx = None
     fullest_file_rate = 0
     downladed_file_rate = 0
@@ -36,24 +40,24 @@ def suggest_method(pieces, downladed_file_index):
     mixed_pieces = []
 
     # calculate per file
-    for idx, blocks in pieces.items():
-        if len(blocks) == 0:
+    for idx, file_info in enumerate(file_infos):
+        if len(file_info.chunks) == 0:
             return 'S'
-        num_of_success = reduce(lambda x, y: x+int(y), blocks, 0)
-        rate = float(num_of_success) / len(blocks)
-        if idx == downladed_file_index:
+        num_of_success = file_info.num_of_good_chunks
+        rate = float(num_of_success) / len(file_info.chunks)
+        if file_info.isOriginal:
             downladed_file_rate = rate
         if rate > fullest_file_rate:
             fullest_file_rate = rate
             fullest_file_idx = idx
 
     # calculate mixed
-    if len(pieces) > 1:
-        for aa in zip(*pieces.values()):
+    if len(file_infos) > 1:
+        for aa in zip(*[fi.chunks for fi in file_infos]):
     #        print aa, type(aa), any(aa)
             mixed_pieces.append(any(aa))
         num_of_success = reduce(lambda x, y: x+int(y), mixed_pieces, 0)
-        print "Got [" + str(num_of_success) + ' of ' + str(len(mixed_pieces)) + ' good pieces from ', len(pieces), 'files', float(num_of_success) / len(mixed_pieces)
+        print "Got [" + str(num_of_success) + ' of ' + str(len(mixed_pieces)) + ' good pieces from ', len(file_infos), 'files', float(num_of_success) / len(mixed_pieces)
 
         if float(num_of_success) / len(mixed_pieces) > fullest_file_rate:
             print fmt.format('Yeppee!!!!!', 'REDBOLD')
@@ -153,48 +157,43 @@ def get_chunk(filesizes, global_offset):
     return (file_idx, global_offset - file_offset)
 
 
-def construct_file(chunks_data, files, pieces, file_idx):
+def construct_file(file_infos, piece_length, dest_filename):
     import tempfile, shutil
 
     # TODO: Get biggest file
+    max_num_of_good_chunks = max(fi.num_of_good_chunks for fi in file_infos)
+    biggest_file = next(fi for fi in file_infos if fi.num_of_good_chunks == max_num_of_good_chunks)
+
     f = tempfile.NamedTemporaryFile(mode = 'w+b', delete=False)
-
-    f.write('foo')
     file_name = f.name
+    print "Temporary file:", file_name
     f.close()
-    shutil.copy(files[0], f.name)
+    print "Copy file: ", biggest_file.path
+    shutil.copy(biggest_file.path, f.name)
 
-    f = open(f.name, 'w+b')
-
-    chunk_idx = 0
-    while True:
-        hash = pieces.read(20)
-        if not hash:
-            break
-        idx, file_offset = get_chunk(files_sizes_array, offset * piece_length)
-
-        if idx == file_idx:
-
-            for p in chunks_data:
-                if p[chunk_idx] == True:
+    f = open(file_name, 'r+b')
+    if len(file_infos) > 1:
+        for chunk_idx, chunks_merged in enumerate(zip(*[fi.chunks for fi in file_infos])):
+            for i, p in enumerate(chunks_merged):
+                if p == True:
                     # copy chunk from and to (file_offset, piece_length)
-                    filename = files[file_idx]
-                    src = open(filename)
-                    src.seek(file_offset)
-                    f.seek(file_offset)
+                    file_info = file_infos[i]
+                    src = open(file_info.path, 'rb')
+                    src.seek(file_info.start_offset + chunk_idx * piece_length)
+                    f.seek(file_info.start_offset + chunk_idx * piece_length)
                     f.write(src.read(piece_length))
                     src.close()
                     break
 
-            chunk_idx += 1
+    print "Move tomporary file to ", dest_filename
+    shutil.move(file_name, dest_filename)
 
-        offset += 1
 
-
-def ensure_dir(f):
+def ensure_dir_exists(f):
     d = os.path.dirname(f)
     if not os.path.exists(d):
         os.makedirs(d)
+
 
 def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_array, basedir):
     global args
@@ -211,16 +210,18 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
     if file_length in files:
         print "Processing file: " + fmt.format(str(file_name), 'BLUEBOLD')
-        chunks_data = {}
-        downladed_file_index = None
+        file_infos = []
 
         add_incomplete_file_with_different_size(dest_path, files[file_length])
 
         for file_number, file in enumerate(files[file_length]):
+            file_info = FileInfo()
+            file_info.path = file
+
             pieces.seek(0)
             if file.startswith(dest_path):
                 number_to_show = ' * '
-                downladed_file_index = file_number
+                file_info.isOriginal = True
             else:
                 number_to_show = ' '+str(file_number)+' '
             sys.stdout.write(fmt.format(number_to_show, 'BLACK0BOLD') + str(file))
@@ -234,6 +235,8 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
                 if not hash:
                     break
                 idx, file_offset = get_chunk(files_sizes_array, offset * piece_length)
+                if not file_info.start_offset:
+                    file_info.start_offset = file_offset
 
                 if idx == file_idx:
                     num_of_checks += 1
@@ -244,22 +247,34 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
                 offset += 1
 
-            chunks_data[file_number] = pieces_list
+            file_info.chunks = pieces_list
+            file_info.num_of_good_chunks = num_of_successes
+            file_infos.append(file_info)
 
             color_code, result_message = get_similatity_rate_and_color(num_of_successes, num_of_checks)
             print fmt.format(' [' + str(num_of_successes) + " of " + str(num_of_checks) + '] (' + result_message + ')', color_code)
-        suggestion = suggest_method(chunks_data, downladed_file_index)
-        input = raw_input(fmt.format('[<N>,S,M], default=' + suggestion + ':', 'INVERT'))
-        if input == '':
-            input = suggestion
-        if re.match('^[0-9]+$', input):
-            src_path = files[file_length][int(input)]
-            print '#### copying:', dest_path, src_path
-            ensure_dir(dest_path)
-            shutil.copyfile(src_path, dest_path + '.!qB')
-        else input == 'M':
-            print 'create mixed file'
-            construct_file(chunks_data, files[file_length], pieces, file_idx)
+
+        suggestion = suggest_method(file_infos)
+        while True:
+            input = raw_input(fmt.format('[<N>,S,M], default=' + suggestion + ':', 'INVERT'))
+            if input == '':
+                input = suggestion
+            if re.match('^[0-9]+$', input):
+                src_path = files[file_length][int(input)]
+                print '#### copying:', dest_path, src_path
+                ensure_dir_exists(dest_path)
+                shutil.copyfile(src_path, dest_path + '.!qB')
+                break
+            elif input.upper() == 'M':
+                print 'create mixed file'
+                ensure_dir_exists(dest_path)
+                construct_file(file_infos, piece_length, dest_path + '.!qB')
+                break
+            elif input.upper() == 'S':
+                print 'Skipping...'
+                break
+            else:
+                print 'Mmmm?'
 
 
     else:
