@@ -74,7 +74,7 @@ def get_similatity_rate_and_color(success_blocks, all_blocks):
 
     rate = float(success_blocks) / all_blocks
     if rate > 0.9:
-        return ('GREEN', 'Excelent')
+        return ('GREEN', 'Excellent')
     if rate > 0.5:
         return ('YELLOW', 'Good')
     if rate > 0.01:
