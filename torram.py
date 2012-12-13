@@ -214,6 +214,11 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
         add_incomplete_file_with_different_size(dest_path, files[file_length])
 
+        print "max", max(file.startswith(dest_path) for file in files[file_length])
+        if len(files[file_length]) < 2 and max(file.startswith(dest_path) for file in files[file_length]):
+            print "Only one file found. Thus, skipping..."
+            return
+
         for file_number, file in enumerate(files[file_length]):
             file_info = FileInfo()
             file_info.path = file
@@ -255,7 +260,7 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             print fmt.format(' [' + str(num_of_successes) + " of " + str(num_of_checks) + '] (' + result_message + ')', color_code)
 
         suggestion = suggest_method(file_infos)
-        while True:
+        while not (suggestion == 'S' and args.autoskip):
             input = raw_input(fmt.format('[<N>,S,M], default=' + suggestion + ':', 'INVERT'))
             if input == '':
                 input = suggestion
@@ -345,6 +350,7 @@ if __name__ == "__main__":
     parser.add_argument('-a', '--autodetect_output_dir', dest='autodetect_output_dir', action='store_true',
         help='Autodetect output directory using config directory of torrent clients (Deluge currently supported only)')
     parser.add_argument('-c', '--use_color', dest='use_color', action='store_true', help='output_format [ansi, ascii]')
+    parser.add_argument('-s', '--autoskip', dest='autoskip', action='store_true', help='autoskip')
     args = parser.parse_args()
 
     if args.use_color:
