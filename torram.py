@@ -1,42 +1,50 @@
 #!/usr/bin/python
-import sys, os, hashlib, StringIO, bencode, re, shutil, tempfile
+import sys
+import os
+import hashlib
+import StringIO
+import bencode
+import re
+import shutil
+import tempfile
 
 
 DELUGE_DIR = '~/.config/deluge/state'
 FILES_DIR = '~'
 MINIMUM_FILESIZE_TO_SEARCH = 1024 * 1024
 
+
 class AnsiFormatter(object):
     aaa = {'RED': "\033[31m",
-           'REDBOLD': "\033[31m\033[1m",
+           'BOLD': "\033[1m",
            'YELLOW': "\033[33m",
            'INVERT': "\033[40m\033[37m",
            'GREEN': "\033[32m",
-           'BLUEBOLD': "\033[34m\033[1m",
+           'BLUE': "\033[34m",
            'BLACK2': "\033[90m",
            'BLACK1': "\033[37m",
            'BLACK0': "\033[97m",
-           'BLACK0BOLD': "\033[97m\033[1m"
-    }
+           }
 
-    def format(self, txt, code):
-        return self.aaa[code] + txt + "\033[0m"
+    def format(self, txt, *code):
+        return ''.join([self.aaa[c] for c in code]) + txt + "\033[0m"
 
 
 class BaseFormatter(object):
     def format(self, txt, code):
         return txt
 
+
 class FileInfo():
     def __init__(self):
         self.start_offset = None
         self.isOriginal = False
 
+
 def suggest_method(file_infos):
     fullest_file_idx = None
     fullest_file_rate = 0
     downladed_file_rate = 0
-    mixed_file_rate = 0
     mixed_pieces = []
 
     # calculate per file
@@ -56,11 +64,11 @@ def suggest_method(file_infos):
         for aa in zip(*[fi.chunks for fi in file_infos]):
     #        print aa, type(aa), any(aa)
             mixed_pieces.append(any(aa))
-        num_of_success = reduce(lambda x, y: x+int(y), mixed_pieces, 0)
-        print "Got [" + str(num_of_success) + ' of ' + str(len(mixed_pieces)) + ' good pieces from ', len(file_infos), 'files', float(num_of_success) / len(mixed_pieces)
+        num_of_success = reduce(lambda x, y: x + int(y), mixed_pieces, 0)
 
         if float(num_of_success) / len(mixed_pieces) > fullest_file_rate:
-            print fmt.format('Yeppee!!!!!', 'REDBOLD')
+            pattern = 'Got [{0} of {1} good pieces from {2} files.'
+            print fmt.format(pattern.format(num_of_success, len(mixed_pieces), len(file_infos)), 'RED', 'BOLD')
             return 'M'
 
     if downladed_file_rate >= fullest_file_rate:
@@ -70,25 +78,24 @@ def suggest_method(file_infos):
 
 def get_similatity_rate_and_color(success_blocks, all_blocks):
     if all_blocks == 0:
-        return ('BLACK2', 'Bad')
+        return 'BLACK2', 'Bad'
 
     rate = float(success_blocks) / all_blocks
     if rate > 0.9:
-        return ('GREEN', 'Excellent')
+        return 'GREEN', 'Excellent'
     if rate > 0.5:
-        return ('YELLOW', 'Good')
+        return 'YELLOW', 'Good'
     if rate > 0.01:
-        return ('YELLOW', 'Poor')
+        return 'YELLOW', 'Poor'
     else:
-        return ('BLACK2', 'Bad')
-
+        return 'BLACK2', 'Bad'
 
 
 def get_file_sizes(info):
     global args
-    if 'files' in info: # yield pieces from a multi-file torrent
+    if 'files' in info:     # yield pieces from a multi-file torrent
         return [fi['length'] for fi in info['files'] if fi['length'] > int(args.minsize)]
-    else: # yield pieces from a single file torrent
+    else:       # yield pieces from a single file torrent
         return [info['length']]
 
 
@@ -106,6 +113,7 @@ def get_possible_files(rootdir, sizes):
 
 
 def load_qbittorrent_conf(hash):
+    """Load qBittorrent settings."""
     from PyQt4 import QtCore
 
     settings = QtCore.QSettings("/home/vbuell/.config/qBittorrent/qBittorrent-resume.conf", QtCore.QSettings.IniFormat)
@@ -114,7 +122,7 @@ def load_qbittorrent_conf(hash):
     record = root[QtCore.QString(hash)]
     path = record[QtCore.QString('save_path')]
 
-    if (isinstance(path, QtCore.QString)):
+    if isinstance(path, QtCore.QString):
         path = str(path)
 
     return path
@@ -158,13 +166,11 @@ def get_chunk(filesizes, global_offset):
 
 
 def construct_file(file_infos, piece_length, dest_filename):
-    import tempfile, shutil
-
     # TODO: Get biggest file
     max_num_of_good_chunks = max(fi.num_of_good_chunks for fi in file_infos)
     biggest_file = next(fi for fi in file_infos if fi.num_of_good_chunks == max_num_of_good_chunks)
 
-    f = tempfile.NamedTemporaryFile(mode = 'w+b', delete=False)
+    f = tempfile.NamedTemporaryFile(mode='w+b', delete=False)
     file_name = f.name
     print "Temporary file:", file_name
     f.close()
@@ -175,7 +181,7 @@ def construct_file(file_infos, piece_length, dest_filename):
     if len(file_infos) > 1:
         for chunk_idx, chunks_merged in enumerate(zip(*[fi.chunks for fi in file_infos])):
             for i, p in enumerate(chunks_merged):
-                if p == True:
+                if p:
                     # copy chunk from and to (file_offset, piece_length)
                     file_info = file_infos[i]
                     src = open(file_info.path, 'rb')
@@ -185,7 +191,7 @@ def construct_file(file_infos, piece_length, dest_filename):
                     src.close()
                     break
 
-    print "Move tomporary file to ", dest_filename
+    print "Move temporary file to ", dest_filename
     shutil.move(file_name, dest_filename)
 
 
@@ -206,16 +212,16 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
         file_name = file_info['name']
 
     file_length = file_info['length']
-    dest_path = os.path.join(save_path, basedir, file_name)
+    destination_path = os.path.join(save_path, basedir, file_name)
 
     if file_length in files:
-        print "Processing file: " + fmt.format(str(file_name), 'BLUEBOLD')
+        print "Processing file: " + fmt.format(str(file_name), 'BLUE', 'BOLD')
         file_infos = []
 
-        add_incomplete_file_with_different_size(dest_path, files[file_length])
+        add_incomplete_file_with_different_size(destination_path, files[file_length])
 
-        print "max", max(file.startswith(dest_path) for file in files[file_length])
-        if len(files[file_length]) < 2 and max(file.startswith(dest_path) for file in files[file_length]):
+        if args.autoskip and len(files[file_length]) < 2 and \
+                max(file.startswith(destination_path) for file in files[file_length]):
             print "Only one file found. Thus, skipping..."
             return
 
@@ -224,12 +230,12 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             file_info.path = file
 
             pieces.seek(0)
-            if file.startswith(dest_path):
+            if file.startswith(destination_path):
                 number_to_show = ' * '
                 file_info.isOriginal = True
             else:
-                number_to_show = ' '+str(file_number)+' '
-            sys.stdout.write(fmt.format(number_to_show, 'BLACK0BOLD') + str(file))
+                number_to_show = ' ' + str(file_number) + ' '
+            sys.stdout.write(fmt.format(number_to_show, 'BLACK0', 'BOLD') + str(file))
 
             num_of_checks = 0
             num_of_successes = 0
@@ -257,23 +263,24 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             file_infos.append(file_info)
 
             color_code, result_message = get_similatity_rate_and_color(num_of_successes, num_of_checks)
-            print fmt.format(' [' + str(num_of_successes) + " of " + str(num_of_checks) + '] (' + result_message + ')', color_code)
+            pattern = ' [{0} of {1}] ({2})'
+            print fmt.format(pattern.format(num_of_successes, num_of_checks, result_message), color_code)
 
         suggestion = suggest_method(file_infos)
         while not (suggestion == 'S' and args.autoskip):
-            input = raw_input(fmt.format('[<N>,S,M], default=' + suggestion + ':', 'INVERT'))
+            input = raw_input(fmt.format('[<N>,S,M], default={0}:'.format(suggestion), 'INVERT'))
             if input == '':
                 input = suggestion
             if re.match('^[0-9]+$', input):
                 src_path = files[file_length][int(input)]
-                print '#### copying:', dest_path, src_path
-                ensure_dir_exists(dest_path)
-                shutil.copyfile(src_path, dest_path + '.!qB')
+                print 'Copying:', destination_path, src_path
+                ensure_dir_exists(destination_path)
+                shutil.copyfile(src_path, destination_path + '.!qB')
                 break
             elif input.upper() == 'M':
-                print 'create mixed file'
-                ensure_dir_exists(dest_path)
-                construct_file(file_infos, piece_length, dest_path + '.!qB')
+                print 'Creating mixed file from multiple sources'
+                ensure_dir_exists(destination_path)
+                construct_file(file_infos, piece_length, destination_path + '.!qB')
                 break
             elif input.upper() == 'S':
                 print 'Skipping...'
@@ -281,10 +288,10 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             else:
                 print 'Mmmm?'
 
-
     else:
         if args.verbose > 0:
             print "Skipping file:", file_name
+
 
 def add_incomplete_file_with_different_size(filepath, list):
     try:
@@ -295,6 +302,7 @@ def add_incomplete_file_with_different_size(filepath, list):
                     list.append(curr_filepath)
     except OSError, ex:
         print ex
+
 
 def main():
     global args
@@ -343,14 +351,18 @@ if __name__ == "__main__":
     parser.add_argument('torrentfile', metavar='torrentFile', help='File to analyze')
     parser.add_argument('root', metavar='root', help='Dir to search')
     parser.add_argument('--symlink', action='store_true',
-        help='Use symlinks instead of copying files. (Caution: You may lost data if files actually are not the same.)')
+                        help='Use symlinks instead of copying files. '
+                             '(Caution: You may lost data if files actually are not the same.)')
     parser.add_argument('--minsize', default=MINIMUM_FILESIZE_TO_SEARCH)
     parser.add_argument('--verbose', '-v', action='count')
-    parser.add_argument('-o', '--output_dir', dest='output_dir', help='Output directory where to create new download directory')
+    parser.add_argument('-o', '--output_dir', dest='output_dir',
+                        help='Output directory where to create new download directory')
     parser.add_argument('-a', '--autodetect_output_dir', dest='autodetect_output_dir', action='store_true',
-        help='Autodetect output directory using config directory of torrent clients (Deluge currently supported only)')
-    parser.add_argument('-c', '--use_color', dest='use_color', action='store_true', help='output_format [ansi, ascii]')
-    parser.add_argument('-s', '--autoskip', dest='autoskip', action='store_true', help='autoskip')
+                        help='Autodetect output directory using config directory of torrent clients '
+                             '(qBittorrent currently supported only)')
+    parser.add_argument('-c', '--use_color', dest='use_color', action='store_true', help='Output format: [ansi, ascii]')
+    parser.add_argument('-s', '--autoskip', dest='autoskip', action='store_true',
+                        help='Auto-skip when there in no choise')
     args = parser.parse_args()
 
     if args.use_color:
