@@ -267,8 +267,12 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             print fmt.format(pattern.format(num_of_successes, num_of_checks, result_message), color_code)
 
         suggestion = suggest_method(file_infos)
-        while not (suggestion == 'S' and args.autoskip):
-            input = raw_input(fmt.format('[<N>,S,M], default={0}:'.format(suggestion), 'INVERT'))
+        while True:
+            input = ''
+            print 'args.autoskip', args.autoskip < 2
+            if args.autoskip < 2 and not (suggestion == 'S' and args.autoskip > 0):
+                input = raw_input(fmt.format('Choose file number or S/M/A [<N>/S/M/A] ({0}) '.format(suggestion), 'INVERT'))
+
             if input == '':
                 input = suggestion
             if re.match('^[0-9]+$', input):
@@ -285,6 +289,9 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             elif input.upper() == 'S':
                 print 'Skipping...'
                 break
+            elif input.upper() == 'A':
+                print 'Autoselect default option'
+                args.autoskip = 2
             else:
                 print 'Mmmm?'
 
@@ -361,7 +368,7 @@ if __name__ == "__main__":
                         help='Autodetect output directory using config directory of torrent clients '
                              '(qBittorrent currently supported only)')
     parser.add_argument('-c', '--use_color', dest='use_color', action='store_true', help='Output format: [ansi, ascii]')
-    parser.add_argument('-s', '--autoskip', dest='autoskip', action='store_true',
+    parser.add_argument('-s', '--autoskip', dest='autoskip', action='count', default=0,
                         help='Auto-skip when there in no choise')
     args = parser.parse_args()
 
