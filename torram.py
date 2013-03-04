@@ -10,6 +10,7 @@ import tempfile
 
 
 DELUGE_DIR = '~/.config/deluge/state'
+QBITTORRENT_RESUME_CONF = '~/.config/qBittorrent/qBittorrent-resume.conf'
 FILES_DIR = '~'
 MINIMUM_FILESIZE_TO_SEARCH = 1024 * 1024
 
@@ -116,7 +117,7 @@ def load_qbittorrent_conf(hash):
     """Load qBittorrent settings."""
     from PyQt4 import QtCore
 
-    settings = QtCore.QSettings("/home/vbuell/.config/qBittorrent/qBittorrent-resume.conf", QtCore.QSettings.IniFormat)
+    settings = QtCore.QSettings(os.path.expanduser(QBITTORRENT_RESUME_CONF), QtCore.QSettings.IniFormat)
 
     root = settings.value('torrents').toPyObject()
     record = root[QtCore.QString(hash)]
@@ -129,13 +130,12 @@ def load_qbittorrent_conf(hash):
 
 
 def check_file_chunk(hash, offset, length, file):
-    sfile = open(file.decode('UTF-8'), "rb")
+    with open(file.decode('UTF-8'), "rb") as sfile:
+        sfile.seek(offset)
+        piece = sfile.read(length)
 
-    sfile.seek(offset)
-    piece = sfile.read(length)
-
-    piece_hash = hashlib.sha1(piece).digest()
-    return piece_hash == hash
+        piece_hash = hashlib.sha1(piece).digest()
+        return piece_hash == hash
 
 
 def get_chunk(filesizes, global_offset):
@@ -177,19 +177,19 @@ def construct_file(file_infos, piece_length, dest_filename):
     print "Copy file: ", biggest_file.path
     shutil.copy(biggest_file.path, f.name)
 
-    f = open(file_name, 'r+b')
     if len(file_infos) > 1:
-        for chunk_idx, chunks_merged in enumerate(zip(*[fi.chunks for fi in file_infos])):
-            for i, p in enumerate(chunks_merged):
-                if p:
-                    # copy chunk from and to (file_offset, piece_length)
-                    file_info = file_infos[i]
-                    src = open(file_info.path, 'rb')
-                    src.seek(file_info.start_offset + chunk_idx * piece_length)
-                    f.seek(file_info.start_offset + chunk_idx * piece_length)
-                    f.write(src.read(piece_length))
-                    src.close()
-                    break
+        with open(file_name, 'r+b') as f:
+            for chunk_idx, chunks_merged in enumerate(zip(*[fi.chunks for fi in file_infos])):
+                for i, p in enumerate(chunks_merged):
+                    if p:
+                        # copy chunk from and to (file_offset, piece_length)
+                        file_info = file_infos[i]
+                        src = open(file_info.path, 'rb')
+                        src.seek(file_info.start_offset + chunk_idx * piece_length)
+                        f.seek(file_info.start_offset + chunk_idx * piece_length)
+                        f.write(src.read(piece_length))
+                        src.close()
+                        break
 
     print "Move temporary file to ", dest_filename
     shutil.move(file_name, dest_filename)
@@ -264,7 +264,7 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
             color_code, result_message = get_similatity_rate_and_color(num_of_successes, num_of_checks)
             pattern = ' [{0} of {1}] ({2})'
-            print fmt.format(pattern.format(num_of_successes, num_of_checks, result_message), color_code)
+            print(fmt.format(pattern.format(num_of_successes, num_of_checks, result_message), color_code))
 
         suggestion = suggest_method(file_infos)
         while True:
@@ -282,18 +282,18 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
                 shutil.copyfile(src_path, destination_path + '.!qB')
                 break
             elif input.upper() == 'M':
-                print 'Creating mixed file from multiple sources'
+                print('Creating mixed file from multiple sources')
                 ensure_dir_exists(destination_path)
                 construct_file(file_infos, piece_length, destination_path + '.!qB')
                 break
             elif input.upper() == 'S':
-                print 'Skipping...'
+                print('Skipping...')
                 break
             elif input.upper() == 'A':
-                print 'Autoselect default option'
+                print('Autoselect default option')
                 args.autoskip = 2
             else:
-                print 'Mmmm?'
+                print('Mmmm?')
 
     else:
         if args.verbose > 0:
