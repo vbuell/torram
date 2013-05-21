@@ -241,13 +241,13 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             file_info = FileInfo()
             file_info.path = file
 
+            if file.startswith(destination_path):
+                number_to_show = ' * '
+                file_info.isOriginal = True
+            else:
+                number_to_show = ' ' + str(file_number) + ' '
             if file in uniq_filenames:
                 pieces.seek(0)
-                if file.startswith(destination_path):
-                    number_to_show = ' * '
-                    file_info.isOriginal = True
-                else:
-                    number_to_show = ' ' + str(file_number) + ' '
                 sys.stdout.write(fmt.format(number_to_show, 'BLACK0', 'BOLD') + str(file))
 
                 num_of_checks = 0
