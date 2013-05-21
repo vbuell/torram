@@ -7,6 +7,7 @@ import bencode
 import re
 import shutil
 import tempfile
+import stat
 
 
 DELUGE_DIR = '~/.config/deluge/state'
@@ -111,6 +112,16 @@ def get_possible_files(rootdir, sizes):
             if filesize in sizes:
                 filesizes.setdefault(filesize, []).append(filepath)
     return filesizes
+
+
+def remove_hard_links(files):
+    for size in files:
+        inode_to_filename = {}
+        files_array = files[size]
+        for filename in files_array:
+            stat_info = os.stat(filename)
+            inode_to_filename[stat_info[stat.ST_INO]] = filename
+        files[size] = inode_to_filename.values()
 
 
 def load_qbittorrent_conf(hash):
@@ -269,7 +280,6 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
         suggestion = suggest_method(file_infos)
         while True:
             input = ''
-            print 'args.autoskip', args.autoskip < 2
             if args.autoskip < 2 and not (suggestion == 'S' and args.autoskip > 0):
                 input = raw_input(fmt.format('Choose file number or S/M/A [<N>/S/M/A] ({0}) '.format(suggestion), 'INVERT'))
 
@@ -334,6 +344,8 @@ def main():
     # Get possible files
     print 'Searching for file pretenders...'
     files = get_possible_files(os.path.expanduser(args.root), sizes)
+
+    remove_hard_links(files)
 
     # Check files one by one
     if 'files' in info:
