@@ -33,7 +33,7 @@ class AnsiFormatter(object):
 
 
 class BaseFormatter(object):
-    def format(self, txt, code):
+    def format(self, txt, *code):
         return txt
 
 
@@ -41,6 +41,7 @@ class FileInfo():
     def __init__(self):
         self.start_offset = None
         self.isOriginal = False
+        self.isHardlink = False
 
 
 def suggest_method(file_infos):
@@ -115,13 +116,11 @@ def get_possible_files(rootdir, sizes):
 
 
 def remove_hard_links(files):
-    for size in files:
-        inode_to_filename = {}
-        files_array = files[size]
-        for filename in files_array:
-            stat_info = os.stat(filename)
-            inode_to_filename[stat_info[stat.ST_INO]] = filename
-        files[size] = inode_to_filename.values()
+    inode_to_filename = {}
+    for filename in files:
+        stat_info = os.stat(filename)
+        inode_to_filename[stat_info[stat.ST_INO]] = filename
+    return inode_to_filename.values()
 
 
 def load_qbittorrent_conf(hash):
@@ -236,46 +235,51 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             print "Only one file found. Thus, skipping..."
             return
 
+        uniq_filenames = remove_hard_links(files[file_length])
+
         for file_number, file in enumerate(files[file_length]):
             file_info = FileInfo()
             file_info.path = file
 
-            pieces.seek(0)
-            if file.startswith(destination_path):
-                number_to_show = ' * '
-                file_info.isOriginal = True
+            if file in uniq_filenames:
+                pieces.seek(0)
+                if file.startswith(destination_path):
+                    number_to_show = ' * '
+                    file_info.isOriginal = True
+                else:
+                    number_to_show = ' ' + str(file_number) + ' '
+                sys.stdout.write(fmt.format(number_to_show, 'BLACK0', 'BOLD') + str(file))
+
+                num_of_checks = 0
+                num_of_successes = 0
+                offset = 0
+                pieces_list = []
+                while True:
+                    hash = pieces.read(20)
+                    if not hash:
+                        break
+                    idx, file_offset = get_chunk(files_sizes_array, offset * piece_length)
+                    if not file_info.start_offset:
+                        file_info.start_offset = file_offset
+
+                    if idx == file_idx:
+                        num_of_checks += 1
+                        hash_result = check_file_chunk(hash, file_offset, piece_length, file)
+                        pieces_list.append(hash_result)
+                        if hash_result:
+                            num_of_successes += 1
+
+                    offset += 1
+
+                file_info.chunks = pieces_list
+                file_info.num_of_good_chunks = num_of_successes
+                file_infos.append(file_info)
+
+                color_code, result_message = get_similatity_rate_and_color(num_of_successes, num_of_checks)
+                pattern = ' [{0} of {1}] ({2})'
+                print(fmt.format(pattern.format(num_of_successes, num_of_checks, result_message), color_code))
             else:
-                number_to_show = ' ' + str(file_number) + ' '
-            sys.stdout.write(fmt.format(number_to_show, 'BLACK0', 'BOLD') + str(file))
-
-            num_of_checks = 0
-            num_of_successes = 0
-            offset = 0
-            pieces_list = []
-            while True:
-                hash = pieces.read(20)
-                if not hash:
-                    break
-                idx, file_offset = get_chunk(files_sizes_array, offset * piece_length)
-                if not file_info.start_offset:
-                    file_info.start_offset = file_offset
-
-                if idx == file_idx:
-                    num_of_checks += 1
-                    hash_result = check_file_chunk(hash, file_offset, piece_length, file)
-                    pieces_list.append(hash_result)
-                    if hash_result:
-                        num_of_successes += 1
-
-                offset += 1
-
-            file_info.chunks = pieces_list
-            file_info.num_of_good_chunks = num_of_successes
-            file_infos.append(file_info)
-
-            color_code, result_message = get_similatity_rate_and_color(num_of_successes, num_of_checks)
-            pattern = ' [{0} of {1}] ({2})'
-            print(fmt.format(pattern.format(num_of_successes, num_of_checks, result_message), color_code))
+                sys.stdout.write(fmt.format(number_to_show, 'BLACK0', 'BOLD') + str(file) + " hardlink -> skipped\n")
 
         suggestion = suggest_method(file_infos)
         while True:
@@ -344,8 +348,6 @@ def main():
     # Get possible files
     print 'Searching for file pretenders...'
     files = get_possible_files(os.path.expanduser(args.root), sizes)
-
-    remove_hard_links(files)
 
     # Check files one by one
     if 'files' in info:
