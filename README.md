@@ -17,6 +17,7 @@ torrent-upstart is a utility for filling a torrent download filder with the alre
 
 ## Usage
 
+```
  % ./torram.py --help
 usage: torram.py [-h] [--symlink] [--minsize MINSIZE] [--verbose]
                  [-o OUTPUT_DIR] [-a] [-c] [-s]
@@ -42,4 +43,4 @@ optional arguments:
                         torrent clients (qBittorrent currently supported only)
   -c, --use_color       Output format: [ansi, ascii]
   -s, --autoskip        Auto-skip when there in no choise
-
+```
