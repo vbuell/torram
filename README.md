@@ -13,7 +13,8 @@ torrent-upstart is a utility for filling a torrent download filder with the alre
 ## Requirements
 
  * Python >= 2.6, but < 3.0 (porting to 3.0 is in progress)
- * bencode (https://pypi.python.org/pypi/bencode)
+ * bencode 1.0 (https://pypi.python.org/pypi/bencode)
+ * PyQt4 (only if you use qBittorrent output directory autodetection)
 
 ## Usage
 
