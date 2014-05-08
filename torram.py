@@ -290,7 +290,7 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
             if input == '':
                 input = suggestion
             if re.match('^[0-9]+$', input):
-                src_path = files[file_length][int(input)]
+                src_path = file_infos[int(input)].path
                 print 'Copying:', destination_path, src_path
                 ensure_dir_exists(destination_path)
                 shutil.copyfile(src_path, destination_path + '.!qB')
