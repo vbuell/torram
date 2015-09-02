@@ -15,6 +15,7 @@ QBITTORRENT_RESUME_CONF = '~/.config/qBittorrent/qBittorrent-resume.conf'
 FILES_DIR = '~'
 MINIMUM_FILESIZE_TO_SEARCH = 1024 * 1024
 
+VERSION = '0.9.0'
 
 class AnsiFormatter(object):
     aaa = {'RED': "\033[31m",
@@ -293,12 +294,12 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
                 src_path = file_infos[int(input)].path
                 print 'Copying:', destination_path, src_path
                 ensure_dir_exists(destination_path)
-                shutil.copyfile(src_path, destination_path + '.!qB')
+                shutil.copyfile(src_path, destination_path + args.file_ext)
                 break
             elif input.upper() == 'M':
                 print('Creating mixed file from multiple sources')
                 ensure_dir_exists(destination_path)
-                construct_file(file_infos, piece_length, destination_path + '.!qB')
+                construct_file(file_infos, piece_length, destination_path + args.file_ext)
                 break
             elif input.upper() == 'S':
                 print('Skipping...')
@@ -369,11 +370,11 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser(description='Tries to find files used in torrent and generate download folder using them.')
-    parser.add_argument('torrentfile', metavar='torrentFile', help='File to analyze')
+    parser.add_argument('torrentfile', metavar='torrentFile', help='.torrent file to analyze')
     parser.add_argument('root', metavar='root', help='Dir to search')
     parser.add_argument('--symlink', action='store_true',
                         help='Use symlinks instead of copying files. '
-                             '(Caution: You may lost data if files actually are not the same.)')
+                             '(Caution: You may lost your data if files actually are not the same.)')
     parser.add_argument('--minsize', default=MINIMUM_FILESIZE_TO_SEARCH)
     parser.add_argument('--verbose', '-v', action='count')
     parser.add_argument('-o', '--output_dir', dest='output_dir',
@@ -384,6 +385,9 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--use_color', dest='use_color', action='store_true', help='Output format: [ansi, ascii]')
     parser.add_argument('-s', '--autoskip', dest='autoskip', action='count', default=0,
                         help='Auto-skip when there in no choise')
+    parser.add_argument('--fileext', dest='file_ext', default='',
+                        help='Extension to be added to output files (ex, .!qB for incomplete qBittorrent files)')
+    parser.add_argument('--version', action='version', version=VERSION)
     args = parser.parse_args()
 
     if args.use_color:

@@ -1,4 +1,4 @@
-# torrent-upstart
+# torram
 
 torrent-upstart is a smart utility that recreats a torrent download folder with fully and partially downloaded files. If several partially-downloaded sources of the same uncompleted torrent files found it merges them together 
 
