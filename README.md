@@ -1,10 +1,10 @@
 # torrent-upstart
 
-torrent-upstart is a utility for filling a torrent download filder with the alreday downloaded files.
+torrent-upstart is a smart utility that recreats a torrent download folder with fully and partially downloaded files. If several partially-downloaded sources of the same uncompleted torrent files found it merges them together 
 
 ## Features
 
- * Mix several partially-downloaded sources into one (yes. And it does work!)
+ * Combine several partially-downloaded sources into one (yes. And it does work!)
  * Ability to specify directory to search for files
  * Autodetect output directory (qBittorrent only for now)
  * Using symlinks instead of copying a file
