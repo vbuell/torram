@@ -111,6 +111,8 @@ def get_possible_files(rootdir, sizes):
         for filename in files:
             filepath = os.path.join(path, filename)
             filesize = os.lstat(filepath).st_size
+            if args.verbose >= 2:
+              print "File registered: %s (%d bytes)" % (filepath, filesize)
             if filesize in sizes:
                 filesizes.setdefault(filesize, []).append(filepath)
     return filesizes
@@ -312,7 +314,7 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
     else:
         if args.verbose > 0:
-            print "Skipping file:", file_name
+            print "Skipping file: %s (%d bytes)" % (file_name, file_length)
 
 
 def add_incomplete_file_with_different_size(filepath, list):
