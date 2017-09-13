@@ -345,6 +345,8 @@ def main():
     if args.autodetect_output_dir:
         save_path = load_qbittorrent_conf(hash)
         print save_path
+    else:
+        save_path = args.output_dir
 
     # Get possible files
     print 'Searching for file pretenders...'
