@@ -373,22 +373,23 @@ if __name__ == "__main__":
 
     from argparse import ArgumentParser
 
-    parser = ArgumentParser(description='Tries to find files used in torrent and generate download folder using them.')
+    parser = ArgumentParser(description='Recreate download directory for .torrent file from fully and partially downloaded file(s).')
     parser.add_argument('torrentfile', metavar='torrentFile', help='.torrent file to analyze')
-    parser.add_argument('root', metavar='root', help='Dir to search')
+    parser.add_argument('root', metavar='root', help='Directory to recursively search files in')
     parser.add_argument('--symlink', action='store_true',
                         help='Use symlinks instead of copying files. '
-                             '(Caution: You may lost your data if files actually are not the same.)')
-    parser.add_argument('--minsize', default=MINIMUM_FILESIZE_TO_SEARCH)
-    parser.add_argument('--verbose', '-v', action='count')
+                             '(Caution: You may lose your data if files actually are not indentical.)')
+    parser.add_argument('--minsize', default=MINIMUM_FILESIZE_TO_SEARCH,
+                        help='Minimum file size in bytes to be recoverable. Default: ' + str(MINIMUM_FILESIZE_TO_SEARCH))
+    parser.add_argument('-v', '--verbose', action='count',
+                        help='Be verbose (multiple levels: use -vv or -vvv to see more)')
     parser.add_argument('-o', '--output_dir', dest='output_dir',
-                        help='Output directory where to create new download directory')
+                        help='Output directory where to place recreated files')
     parser.add_argument('-a', '--autodetect_output_dir', dest='autodetect_output_dir', action='store_true',
-                        help='Autodetect output directory using config directory of torrent clients '
-                             '(qBittorrent currently supported only)')
+                        help='Autodetect output directory (only qBittorrent currently supported)')
     parser.add_argument('-c', '--use_color', dest='use_color', action='store_true', help='Output format: [ansi, ascii]')
     parser.add_argument('-s', '--autoskip', dest='autoskip', action='count', default=0,
-                        help='Auto-skip when there in no choise')
+                        help='Dont ask questions if there is only one viable choise. Use -ss to behave even more automated')
     parser.add_argument('--fileext', dest='file_ext', default='',
                         help='Extension to be added to output files (ex, .!qB for incomplete qBittorrent files)')
     parser.add_argument('--version', action='version', version=VERSION)
