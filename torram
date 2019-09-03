@@ -198,8 +198,9 @@ def construct_file(file_infos, piece_length, dest_filename):
                         # copy chunk from and to (file_offset, piece_length)
                         file_info = file_infos[i]
                         src = open(file_info.path, 'rb')
-                        src.seek(file_info.start_offset + chunk_idx * piece_length)
-                        f.seek(file_info.start_offset + chunk_idx * piece_length)
+                        offset = 0 if args.samesource == True else file_info.start_offset
+                        src.seek(offset + chunk_idx * piece_length)
+                        f.seek(offset + chunk_idx * piece_length)
                         f.write(src.read(piece_length))
                         src.close()
                         break
@@ -249,7 +250,7 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
                 file_info.isOriginal = True
             else:
                 number_to_show = ' ' + str(file_number) + ' '
-            if file in uniq_filenames:
+            if ((file in uniq_filenames) or args.samesource == True) :
                 pieces.seek(0)
                 sys.stdout.write(fmt.format(number_to_show, 'BLACK0', 'BOLD') + str(file))
 
@@ -393,6 +394,7 @@ if __name__ == "__main__":
     parser.add_argument('--fileext', dest='file_ext', default='',
                         help='Extension to be added to output files (ex, .!qB for incomplete qBittorrent files)')
     parser.add_argument('--version', action='version', version=VERSION)
+    parser.add_argument('--samesource', action='store_true', help="allow multiple (partial) files for same torrent", default=False)
     args = parser.parse_args()
 
     if args.use_color:
