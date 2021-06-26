@@ -1,13 +1,14 @@
-#!/usr/bin/python
-import sys
-import os
+#!/usr/bin/env python3
+import functools
 import hashlib
-import StringIO
-import bencode
+import io
+import os
 import re
 import shutil
-import tempfile
 import stat
+import sys
+import tempfile
+import bencode
 
 
 DELUGE_DIR = '~/.config/deluge/state'
@@ -68,11 +69,11 @@ def suggest_method(file_infos):
         for aa in zip(*[fi.chunks for fi in file_infos]):
     #        print aa, type(aa), any(aa)
             mixed_pieces.append(any(aa))
-        num_of_success = reduce(lambda x, y: x + int(y), mixed_pieces, 0)
+        num_of_success = functools.reduce(lambda x, y: x + int(y), mixed_pieces, 0)
 
         if float(num_of_success) / len(mixed_pieces) > fullest_file_rate:
             pattern = 'Got [{0} of {1} good pieces from {2} files.'
-            print fmt.format(pattern.format(num_of_success, len(mixed_pieces), len(file_infos)), 'RED', 'BOLD')
+            print(fmt.format(pattern.format(num_of_success, len(mixed_pieces), len(file_infos)), 'RED', 'BOLD'))
             return 'M'
 
     if downladed_file_rate >= fullest_file_rate:
@@ -112,7 +113,7 @@ def get_possible_files(rootdir, sizes):
             filepath = os.path.join(path, filename)
             filesize = os.lstat(filepath).st_size
             if args.verbose >= 2:
-              print "File registered: %s (%d bytes)" % (filepath, filesize)
+              print("File registered: %s (%d bytes)" % (filepath, filesize))
             if filesize in sizes:
                 filesizes.setdefault(filesize, []).append(filepath)
     return filesizes
@@ -142,8 +143,8 @@ def load_qbittorrent_conf(hash):
     return path
 
 
-def check_file_chunk(hash, offset, length, file):
-    with open(file.decode('UTF-8'), "rb") as sfile:
+def check_file_chunk(hash, offset, length, filename):
+    with open(filename, "rb") as sfile:
         sfile.seek(offset)
         piece = sfile.read(length)
 
@@ -185,9 +186,9 @@ def construct_file(file_infos, piece_length, dest_filename):
 
     f = tempfile.NamedTemporaryFile(mode='w+b', delete=False)
     file_name = f.name
-    print "Temporary file:", file_name
+    print("Temporary file:", file_name)
     f.close()
-    print "Copy file: ", biggest_file.path
+    print("Copy file: ", biggest_file.path)
     shutil.copy(biggest_file.path, f.name)
 
     if len(file_infos) > 1:
@@ -204,7 +205,7 @@ def construct_file(file_infos, piece_length, dest_filename):
                         src.close()
                         break
 
-    print "Move temporary file to ", dest_filename
+    print("Move temporary file to ", dest_filename)
     shutil.move(file_name, dest_filename)
 
 
@@ -228,14 +229,14 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
     destination_path = os.path.join(save_path, basedir, file_name)
 
     if file_length in files:
-        print "Processing file: " + fmt.format(str(file_name), 'BLUE', 'BOLD')
+        print("Processing file: " + fmt.format(str(file_name), 'BLUE', 'BOLD'))
         file_infos = []
 
         add_incomplete_file_with_different_size(destination_path, files[file_length])
 
         if args.autoskip and len(files[file_length]) < 2 and \
                 max(file.startswith(destination_path) for file in files[file_length]):
-            print "Only one file found. Thus, skipping..."
+            print("Only one file found. Thus, skipping...")
             return
 
         uniq_filenames = remove_hard_links(files[file_length])
@@ -286,27 +287,27 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
         suggestion = suggest_method(file_infos)
         while True:
-            input = ''
+            user_input = ''
             if args.autoskip < 2 and not (suggestion == 'S' and args.autoskip > 0):
-                input = raw_input(fmt.format('Choose file number or S/M/A [<N>/S/M/A] ({0}) '.format(suggestion), 'INVERT'))
+                user_input = input(fmt.format('Choose file number or [S]kip/co[M]bine/[A]uto [<N>/S/M/A] ({0}) '.format(suggestion), 'INVERT'))
 
-            if input == '':
-                input = suggestion
-            if re.match('^[0-9]+$', input):
-                src_path = file_infos[int(input)].path
-                print 'Copying:', destination_path, src_path
+            if user_input == '':
+                user_input = suggestion
+            if re.match('^[0-9]+$', user_input):
+                src_path = file_infos[int(user_input)].path
+                print('Copying:', destination_path, src_path)
                 ensure_dir_exists(destination_path)
                 shutil.copyfile(src_path, destination_path + args.file_ext)
                 break
-            elif input.upper() == 'M':
+            elif user_input.upper() == 'M':
                 print('Creating mixed file from multiple sources')
                 ensure_dir_exists(destination_path)
                 construct_file(file_infos, piece_length, destination_path + args.file_ext)
                 break
-            elif input.upper() == 'S':
+            elif user_input.upper() == 'S':
                 print('Skipping...')
                 break
-            elif input.upper() == 'A':
+            elif user_input.upper() == 'A':
                 print('Autoselect default option')
                 args.autoskip = 2
             else:
@@ -314,18 +315,16 @@ def guess_file(file_info, file_idx, files, pieces, piece_length, files_sizes_arr
 
     else:
         if args.verbose > 0:
-            print "Skipping file: %s (%d bytes)" % (file_name, file_length)
+            print("Skipping file: %s (%d bytes)" % (file_name, file_length))
 
 
 def add_incomplete_file_with_different_size(filepath, list):
-    try:
+    if os.path.exists(filepath):
         for filename in os.listdir(os.path.dirname(filepath)):
             curr_filepath = os.path.join(os.path.dirname(filepath), filename)
             if curr_filepath.startswith(filepath):
                 if curr_filepath not in list:
                     list.append(curr_filepath)
-    except OSError, ex:
-        print ex
 
 
 def main():
@@ -336,22 +335,22 @@ def main():
     torrent_file = open(args.torrentfile, "rb")
     metainfo = bencode.bdecode(torrent_file.read())
     info = metainfo['info']
-    pieces = StringIO.StringIO(info['pieces'])
+    pieces = io.BytesIO(info['pieces'])
 
     hash = hashlib.sha1(bencode.bencode(info)).hexdigest()
-    print "Hash:", hash
+    print("Hash:", hash)
 
     sizes = get_file_sizes(info)
-    print 'Sizes', sizes
+    print('Sizes', sizes)
 
     if args.autodetect_output_dir:
         save_path = load_qbittorrent_conf(hash)
-        print save_path
+        print(save_path)
     else:
         save_path = args.output_dir
 
     # Get possible files
-    print 'Searching for file pretenders...'
+    print('Searching for file pretenders...')
     files = get_possible_files(os.path.expanduser(args.root), sizes)
 
     # Check files one by one
@@ -362,15 +361,11 @@ def main():
             guess_file(f, file_idx, files, pieces, info['piece length'], files_sizes_array, info['name'])
             file_idx += 1
     else:
-        print info.keys()
         files_sizes_array = [info['length']]
         guess_file(info, 0, files, pieces, info['piece length'], files_sizes_array, '')
 
 
 if __name__ == "__main__":
-#    import doctest
-#    doctest.testmod()
-
     from argparse import ArgumentParser
 
     parser = ArgumentParser(description='Recreate download directory for .torrent file from fully and partially downloaded file(s).')
@@ -381,7 +376,7 @@ if __name__ == "__main__":
                              '(Caution: You may lose your data if files actually are not indentical.)')
     parser.add_argument('--minsize', default=MINIMUM_FILESIZE_TO_SEARCH,
                         help='Minimum file size in bytes to be recoverable. Default: ' + str(MINIMUM_FILESIZE_TO_SEARCH))
-    parser.add_argument('-v', '--verbose', action='count',
+    parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Be verbose (multiple levels: use -vv or -vvv to see more)')
     parser.add_argument('-o', '--output_dir', dest='output_dir',
                         help='Output directory where to place recreated files')

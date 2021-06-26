@@ -3,7 +3,7 @@
 torram (former torrent-upstart) is a utility that recreates a torrent download
 directory from fully and partially downloaded file(s). If several
 partially-downloaded sources of the same incompleted torrent files found, it
-merges them together.
+merges all downloaded chunks into the target files together.
 
 ## Use cases
 
@@ -73,8 +73,8 @@ So the algorithm is:
  
 ## Requirements
 
- * Python >= 2.6, but < 3.0 (porting to 3.0 is in progress)
- * bencode 1.0 (https://pypi.python.org/pypi/bencode)
+ * Python >= 3.4
+ * bencode.py (https://pypi.python.org/pypi/bencode)
  * PyQt4 (only if you use qBittorrent output directory autodetection, switch
    `--autodetect_output_dir`)
 
