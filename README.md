@@ -2,12 +2,12 @@
 
 torram (former torrent-upstart) is a utility that recreates a torrent download
 directory from fully and partially downloaded file(s). If several
-partially-downloaded sources of the same incompleted torrent files found, it
+partially-downloaded sources of the same incompleted torrent files are found, it
 merges all downloaded chunks into the target files together.
 
 ## Use cases
 
-There are two major cases when this utility will help you to save trafic or to
+There are two major cases when this utility will help you to save traffic or to
 help recovering the files:
 
 #### "hey, where are all seeders?" situation
@@ -30,36 +30,36 @@ children of the *root* directory (see Usage section).
 #### "I don't like to download it twice" situation
 
 It's a good idea to scan your HDD drive with this utility before starting
-downloading in terms of reusing already downloaded file.
+downloading in terms of reusing already downloaded files.
 
 > :warning: Again, make sure that you "Force check" torrent after you run this
 > tool...
 
 **Note**: Due to technical implementation of how files are being split into
 chunks in .torrent, sometimes it's impossible to check md5 sum of first and last
-chunk of the file. So after "Force check" is done you may see that file is 99%
+chunk of the file. So after "Force check" is done you may see that the file is 99%
 complete even though it's actually 100%.
 
 ## How does it work
 
-Each .torrent file consist of one or several files, each of them defined as a
+Each .torrent file consists of one or several files, each of them defined as a
 record of fields: file name, file size, file's hash, plus an error detection
-information in the form of md5 hash sum for all chunk. This error detection part
+information in the form of md5 hash sum for all chunks. This error detection part
 allows us to do the trick - find chunks with the same md5 sum from files in your
-filesystem and generate output file using this chunks.
+filesystem and generate output file using these chunks.
 
 So the algorithm is:
 
  * scan *root* directory (last positional arg) recursively and find ponential
-   pretenders for each file of .torrent file using to simple matching rules:
-   file should be either named as required or should have the same file size
- * for each pretenders of .torrent file we do split pretender file into chunks
+   pretenders for each file of .torrent file using two simple matching rules:
+   file should either be named as required or should have the same file size
+ * for each pretender of .torrent file we do split pretender file into chunks
    and calculate md5 sum for every chunk in order to find blocks that we will
    use to put in destination file
- * if multiple pretenders found having reusable blocks then we prompts user to
-   choose one of method: merge from multiple files (default); use one of files
+ * if multiple pretenders found having reusable blocks then we prompt user to
+   choose one of these methods: merge from multiple files (default); use one of files
    without merging; or skip the file
- * based of user's selection the tool will create a file (or skip creation) and
+ * based on user's selection the tool will create a file (or skip creation) and
    place it in output directory (`-o` argument)
 
 
@@ -96,8 +96,8 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   --symlink             Use symlinks instead of copying files. (Caution: You
-                        may lose your data if files actually are not
-                        indentical.)
+                        may lose your data if files are not actually
+                        identical.)
   --minsize MINSIZE     Minimum file size in bytes to be recoverable. Default:
                         1048576
   -v, --verbose         Be verbose (multiple levels: use -vv or -vvv to see
@@ -108,7 +108,7 @@ optional arguments:
                         Autodetect output directory (only qBittorrent
                         currently supported)
   -c, --use_color       Output format: [ansi, ascii]
-  -s, --autoskip        Dont ask questions if there is only one viable choise.
+  -s, --autoskip        Dont ask questions if there is only one viable choice.
                         Use -ss to behave even more automated
   --fileext FILE_EXT    Extension to be added to output files (ex, .!qB for
                         incomplete qBittorrent files)
